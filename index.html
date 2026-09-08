@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Jeu de Lettres</title>
+<!-- PWA : installation sur écran d'accueil -->
+<meta name="theme-color" content="#0d9488">
+<!-- Samsung Internet et Chrome Android forcent parfois un mode sombre automatique
+     qui rend les pastilles illisibles : on annonce que la page est en clair. -->
+<meta name="color-scheme" content="light">
+<link rel="manifest" href="jeu-de-lettres-manifest.json">
+<link rel="apple-touch-icon" href="jeu-de-lettres-icon-180.png?v=2">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Jeu de Lettres">
+<meta name="application-name" content="Jeu de Lettres">
+
+<style>
+  :root{
+    color-scheme:light;
+    --bg:#eef2f7;
+    --card:#ffffff;
+    --ink:#0f172a;
+    --muted:#64748b;
+    --thin:#cbd5e1;
+    --accent:#0d9488;
+    --accent-soft:#ccfbf1;
+    --warn:#b45309;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body{
+    background:var(--bg);
+    font-family:-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    color:var(--ink);
+    -webkit-text-size-adjust:100%;
+  }
+  body{
+    padding:14px 12px;
+    padding-top:max(14px, env(safe-area-inset-top));
+    padding-bottom:max(24px, env(safe-area-inset-bottom));
+  }
+  .wrap{ max-width:720px; margin:0 auto; }
+
+  header{ margin-bottom:14px; }
+  h1{ font-size:1.5rem; font-weight:800; letter-spacing:.5px; }
+  h1 .sub{ font-size:.78rem; font-weight:600; color:var(--muted); margin-left:8px; letter-spacing:0; }
+  .dedicace{ font-size:.9rem; font-weight:600; font-style:italic; color:var(--accent);
+             margin-top:6px; display:flex; align-items:center; gap:3px; }
+  .dedicace span{ margin:0 6px; }
+  .coq{ width:1.9em; height:1.9em; flex:none; border-radius:50%;
+        object-fit:cover; box-shadow:0 0 0 2px #fff, 0 1px 4px rgba(15,23,42,.25); }
+
+  .card{
+    background:var(--card); border-radius:14px; padding:14px;
+    box-shadow:0 6px 20px rgba(15,23,42,.08); margin-bottom:14px;
+  }
+
+  .lbl{ display:block; font-size:.75rem; font-weight:700; color:var(--muted);
+        text-transform:uppercase; letter-spacing:.4px; margin-bottom:6px; }
+
+  .row{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+  @media (max-width:560px){ .row{ grid-template-columns:1fr; } }
+
+  input[type=text], input[type=number]{
+    width:100%; font:inherit; font-size:1.05rem; font-weight:600;
+    padding:10px 12px; border:1px solid var(--thin); border-radius:10px;
+    background:#fff; color:var(--ink); text-transform:lowercase;
+  }
+  input:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+  input::placeholder{ font-weight:500; color:#94a3b8; text-transform:none; }
+
+  .field{ margin-top:16px; }
+  .field:first-child{ margin-top:0; }
+  label.q{ display:block; font-size:.8rem; font-weight:700; color:var(--ink); margin-bottom:5px; }
+
+  select{ width:100%; font:inherit; font-size:1.02rem; font-weight:700;
+          padding:11px 12px; border:1px solid var(--thin); border-radius:10px; background:#fff; color:var(--ink); }
+  select:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+
+  [hidden]{ display:none !important; }
+  .line{ display:flex; gap:7px; align-items:flex-end; }
+  .line .mini{ flex:0 0 70px; }
+  .line .grow{ flex:1 1 auto; min-width:0; }
+
+  .mini-btn{ flex:none; width:42px; height:44px; padding:0; margin:0;
+    border:1px solid var(--thin); border-radius:10px; background:#fff;
+    font-size:1.05rem; font-weight:800; color:var(--accent); cursor:pointer;
+    display:inline-flex; align-items:center; justify-content:center;
+    list-style:none; -webkit-user-select:none; user-select:none; }
+  .mini-btn::-webkit-details-marker{ display:none; }
+  summary.mini-btn{ list-style:none; }
+  details.pop[open] > summary.mini-btn,
+  .mini-btn:has(input:checked){ background:var(--accent-soft); border-color:var(--accent); }
+  .mini-btn > input{ display:none; }
+
+  details.pop{ position:relative; flex:none; }
+  .pop-panel{ position:absolute; right:0; top:calc(100% + 6px); z-index:30;
+    width:min(80vw, 264px); background:#fff; border:1px solid var(--accent);
+    border-radius:12px; box-shadow:0 12px 34px rgba(15,23,42,.20);
+    padding:10px 13px; font-size:.85rem; font-weight:500; line-height:1.55;
+    color:var(--ink); text-transform:none; }
+  .pop-panel code{ background:#f1f5f9; border-radius:4px; padding:1px 5px; font-weight:700;
+    color:var(--ink); font-family:'SF Mono', Menlo, Consolas, monospace; font-size:.92em; }
+  .pop-panel p + p{ margin-top:8px; }
+
+  .check{ display:flex; align-items:center; gap:9px; padding:5px 0;
+    font-size:.9rem; font-weight:600; color:var(--ink);
+    cursor:pointer; -webkit-user-select:none; user-select:none; }
+  .check input{ width:19px; height:19px; accent-color:var(--accent); flex:none; margin:0; }
+  .check .sub{ font-weight:600; color:var(--muted); }
+  .types-panel hr{ border:0; border-top:1px solid #e2e8f0; margin:6px 0 2px; }
+
+  .actions{ display:flex; align-items:center; gap:8px; margin-top:16px; }
+  .types-sum{ flex:1 1 auto; min-width:0; font-size:.8rem; font-weight:700; color:var(--muted);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .btn-go{ flex:none; font:inherit; font-size:.9rem; font-weight:800; padding:10px 18px;
+    border:0; border-radius:10px; background:var(--accent); color:#fff; cursor:pointer; }
+  .raz{ flex:none;
+    font:inherit; font-size:.9rem; font-weight:700; padding:10px 14px;
+    border:1px solid var(--thin); border-radius:10px; background:#fff;
+    color:var(--muted); cursor:pointer;
+  }
+
+  .compte{ font-size:.9rem; font-weight:700; color:var(--accent); margin-bottom:10px; }
+  .compte.vide{ color:var(--warn); }
+
+  .mots{ display:flex; flex-wrap:wrap; gap:6px; }
+  .mots span{
+    background:var(--accent-soft); color:#0f766e; font-weight:600;
+    padding:5px 10px; border-radius:8px; font-size:.95rem;
+    -webkit-user-select:text; user-select:text;
+  }
+  .mots span i{ font-style:normal; font-weight:700; font-size:.72rem; opacity:.6; margin-left:5px; }
+  .mots span.clic{ cursor:pointer; }
+  .mots span.clic:active{ background:#5eead4; }
+  .mots span.sel{ background:var(--accent); color:#fff; }
+  .anabox{ margin:4px 0 12px; padding:10px 12px; background:#f0fdfa;
+           border:1px solid var(--accent); border-radius:10px; }
+  .ana-titre{ font-size:.82rem; font-weight:800; color:#0f766e; margin-bottom:8px; }
+  .anabox .mots span{ background:#fff; border:1px solid #99f6e4; }
+  .grp{ font-size:.75rem; font-weight:800; color:var(--muted); text-transform:uppercase;
+        letter-spacing:.4px; width:100%; margin-top:8px; }
+  .grp:first-child{ margin-top:0; }
+
+  .msg{ color:var(--muted); font-size:.92rem; line-height:1.5; }
+  .plus{ font:inherit; font-size:.85rem; font-weight:700; margin-top:12px; padding:9px 14px;
+         border:1px solid var(--thin); border-radius:10px; background:#fff; color:var(--accent); cursor:pointer; }
+
+  footer{ text-align:center; font-size:.72rem; color:var(--muted); margin-top:18px; line-height:1.6; }
+  footer a{ color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Jeu de Lettres<span class="sub">mots &amp; anagrammes</span></h1>
+    <!-- Photo de coquelicot confiée par la propriétaire du site : c'est un symbole personnel
+         pour Monique, ne pas la remplacer par un emoji ou un dessin. Embarquée dans la page
+         (data URI, 3,4 Ko) pour n'avoir aucun fichier image à ouvrir en accès public. -->
+    <p class="dedicace">
+      <img class="coq" src="data:image/jpeg;base64,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" alt="">
+      <span>Pour Monique</span>
+      <img class="coq" src="data:image/jpeg;base64,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" alt="">
+    </p>
+  </header>
+
+  <div class="card">
+
+    <div class="field line">
+      <div class="mini">
+        <label class="q" for="nb">Nb de lettres</label>
+        <input type="number" id="nb" min="2" max="25" inputmode="numeric" placeholder="7">
+      </div>
+      <div class="grow">
+        <label class="q" for="motif">Le mot, avec des trous</label>
+        <input type="text" id="motif" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="c?a??r*">
+      </div>
+      <details class="pop">
+        <summary class="mini-btn" title="Aide">?</summary>
+        <div class="pop-panel">
+          <p><code>?</code> = une lettre inconnue<br><code>*</code> = un groupe de lettres, ou rien</p>
+          <p><code>c?a??r*</code> → chambre, chantre, cratère<br><code>cha*</code> → commence par « cha »<br><code>*ouille</code> → finit par « ouille »</p>
+          <p>Touchez un mot trouvé pour voir ses <b>anagrammes</b>.</p>
+        </div>
+      </details>
+      <details class="pop" id="pop-types-f">
+        <summary class="mini-btn" title="Types de mots">🔤</summary>
+        <div class="pop-panel types-panel" id="types-panel">
+          <label class="check"><input type="checkbox" id="cat-nom" checked> Noms</label>
+          <label class="check"><input type="checkbox" id="cat-ver" checked> Verbes</label>
+          <label class="check"><input type="checkbox" id="cat-adj" checked> Adjectifs</label>
+          <label class="check"><input type="checkbox" id="cat-adv" checked> Adverbes</label>
+          <hr>
+          <label class="check"><input type="checkbox" id="rare"> Inclure les mots rares</label>
+        </div>
+      </details>
+    </div>
+
+    <div class="actions">
+      <span class="types-sum" id="types-sum">Tous les types</span>
+      <button class="btn-go" id="go">Valider</button>
+      <button class="raz" id="raz">Effacer</button>
+    </div>
+
+  </div>
+
+  <div class="card" id="zone">
+    <p class="msg">Chargement du dictionnaire…</p>
+  </div>
+
+  <footer>
+    Dictionnaire <a href="http://www.lexique.org/">Lexique 3.83</a> — licence CC BY-SA 4.0.<br>
+    Les accents sont ignorés dans la recherche. Noms, adjectifs et adverbes au singulier ; verbes à l'infinitif.
+  </footer>
+
+</div>
+
+<script src="jeu-de-lettres-mots.js"></script>
+<script>
+(function(){
+  'use strict';
+
+  var MAX_AFFICHE = 600;
+
+  var CATS = [
+    { cle:'nom', lib:'Noms',      tag:'n.'   },
+    { cle:'ver', lib:'Verbes',    tag:'v.'   },
+    { cle:'adj', lib:'Adjectifs', tag:'adj.' },
+    { cle:'adv', lib:'Adverbes',  tag:'adv.' }
+  ];
+
+  var mots = [];
+
+  function aplatir(s){
+    return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+            .replace(/œ/g,'oe').replace(/æ/g,'ae').toLowerCase();
+  }
+
+  function construire(){
+    var parMot = Object.create(null);
+    CATS.forEach(function(cat){
+      var paquets = window.JDL_MOTS[cat.cle] || [];
+      paquets.forEach(function(paquet, niv){
+        if(!paquet) return;
+        paquet.split(' ').forEach(function(mot){
+          var e = parMot[mot];
+          if(!e){
+            var plat = aplatir(mot);
+            e = parMot[mot] = { m:mot, p:plat, n:plat.length, niv:{} };
+            mots.push(e);
+          }
+          if(e.niv[cat.cle] === undefined || niv < e.niv[cat.cle]) e.niv[cat.cle] = niv;
+        });
+      });
+    });
+  }
+
+  var $ = function(id){ return document.getElementById(id); };
+  var nbEl = $('nb'), motifEl = $('motif'), rareEl = $('rare'),
+      typesSum = $('types-sum'), zoneEl = $('zone');
+
+  function catCoche(cle){ return $('cat-' + cle).checked; }
+
+  function motifEnRegex(txt){
+    var re = '^', c;
+    for(var i=0;i<txt.length;i++){
+      c = txt.charAt(i);
+      re += (c === '?') ? '.' : (c === '*') ? '.*' : c;
+    }
+    return new RegExp(re + '$');
+  }
+
+  var A = 'a'.charCodeAt(0);
+
+  function stockDeLettres(txt){
+    var stock = new Int32Array(26);
+    for(var i=0;i<txt.length;i++){
+      var c = txt.charCodeAt(i);
+      if(c >= A && c < A + 26) stock[c - A]++;
+    }
+    return stock;
+  }
+
+  function memesLettres(plat, stock){
+    var reste = stock.slice();
+    for(var i=0;i<plat.length;i++){
+      var k = plat.charCodeAt(i) - A;
+      if(k < 0 || k > 25 || reste[k] === 0) return false;
+      reste[k]--;
+    }
+    return true;
+  }
+
+  // Toutes les vraies anagrammes d'un mot : mêmes lettres, même longueur, le mot lui-même exclu.
+  function anagrammesDe(motPlat){
+    var stock = stockDeLettres(motPlat), L = motPlat.length, out = [];
+    for(var i=0;i<mots.length;i++){
+      var w = mots[i];
+      if(w.n === L && w.p !== motPlat && memesLettres(w.p, stock)) out.push(w);
+    }
+    out.sort(function(a,b){ return a.p.localeCompare(b.p, 'fr'); });
+    return out;
+  }
+
+  function chercher(){
+    var cats = CATS.filter(function(c){ return catCoche(c.cle); }).map(function(c){ return c.cle; });
+    if(cats.length === 0){
+      return { erreur:'Coche au moins un type de mot (bouton 🔤).' };
+    }
+    var niv = rareEl.checked ? 2 : 1;
+
+    var nb = parseInt(nbEl.value, 10);
+    if(isNaN(nb) || nb < 1) nb = 0;
+    var motifTxt = aplatir(motifEl.value.trim()).replace(/[^a-z?*]/g,'');
+    if(!nb && !motifTxt){
+      return { erreur:'Indique un nombre de lettres ou la forme du mot, puis « Valider ».' };
+    }
+    var motif = motifTxt ? motifEnRegex(motifTxt) : null;
+
+    var res = [];
+    for(var j=0;j<mots.length;j++){
+      var v = mots[j];
+      if(nb && v.n !== nb) continue;
+      if(motif && !motif.test(v.p)) continue;
+      var garde = false;
+      for(var c=0;c<cats.length;c++){
+        var nn = v.niv[cats[c]];
+        if(nn !== undefined && nn <= niv){ garde = true; break; }
+      }
+      if(garde) res.push(v);
+    }
+    res.sort(function(a,b){ return (a.n - b.n) || a.p.localeCompare(b.p, 'fr'); });
+    return { mots:res, groupe: !nb, cats:cats, niv:niv };
+  }
+
+  function etiquette(w, cats, niv){
+    if(!cats || cats.length < 2 || cats.length >= CATS.length) return '';
+    var tags = [];
+    CATS.forEach(function(c){
+      if(cats.indexOf(c.cle) === -1) return;
+      var n = w.niv[c.cle];
+      if(n !== undefined && n <= niv) tags.push(c.tag);
+    });
+    return tags.join(' ');
+  }
+
+  function message(texte){
+    var p = document.createElement('p');
+    p.className = 'msg';
+    p.textContent = texte;
+    zoneEl.appendChild(p);
+  }
+
+  function idle(){
+    zoneEl.innerHTML = '';
+    message('Choisis tes critères puis appuie sur « Valider ».');
+  }
+
+  var toutAffiche = false;
+  var lance = false;
+
+  function afficher(){
+    var r = chercher();
+    zoneEl.innerHTML = '';
+
+    if(r.erreur){ message(r.erreur); return; }
+
+    var n = r.mots.length;
+    var head = document.createElement('p');
+    head.className = 'compte' + (n === 0 ? ' vide' : '');
+    head.textContent = n === 0 ? 'aucun mot' : (n === 1 ? '1 mot trouvé' : n + ' mots trouvés');
+    zoneEl.appendChild(head);
+
+    if(n === 0){
+      message('Aucun mot ne correspond. Coche « Inclure les mots rares » (bouton 🔤), ou élargis les types.');
+      return;
+    }
+
+    // Encadré des anagrammes, rempli quand on touche un mot.
+    var anaBox = document.createElement('div');
+    anaBox.className = 'anabox';
+    anaBox.hidden = true;
+    zoneEl.appendChild(anaBox);
+
+    var box = document.createElement('div');
+    box.className = 'mots';
+    zoneEl.appendChild(box);
+
+    var selSpan = null;
+    function montrer(w, span){
+      if(selSpan){ selSpan.classList.remove('sel'); }
+      if(selSpan === span){ selSpan = null; anaBox.hidden = true; return; }
+      selSpan = span;
+      span.classList.add('sel');
+      var ana = anagrammesDe(w.p);
+      anaBox.innerHTML = '';
+      var t = document.createElement('div');
+      t.className = 'ana-titre';
+      t.textContent = ana.length
+        ? 'Anagrammes de « ' + w.m + ' »'
+        : '« ' + w.m + ' » n\'a pas d\'anagramme';
+      anaBox.appendChild(t);
+      if(ana.length){
+        var g = document.createElement('div');
+        g.className = 'mots';
+        for(var k=0;k<ana.length;k++){
+          var sa = document.createElement('span');
+          sa.textContent = ana[k].m;
+          g.appendChild(sa);
+        }
+        anaBox.appendChild(g);
+      }
+      anaBox.hidden = false;
+    }
+
+    function ajouterMot(w){
+      var s = document.createElement('span');
+      s.className = 'clic';
+      s.textContent = w.m;
+      var tag = etiquette(w, r.cats, r.niv);
+      if(tag){
+        var i2 = document.createElement('i');
+        i2.textContent = tag;
+        s.appendChild(i2);
+      }
+      s.onclick = function(){ montrer(w, s); };
+      box.appendChild(s);
+      return s;
+    }
+
+    var coupe = (!toutAffiche && n > MAX_AFFICHE) ? MAX_AFFICHE : n;
+    var longueur = -1, premier = null;
+    for(var i=0;i<coupe;i++){
+      var w = r.mots[i];
+      if(r.groupe && w.n !== longueur){
+        longueur = w.n;
+        var th = document.createElement('div');
+        th.className = 'grp';
+        th.textContent = longueur + ' lettres';
+        box.appendChild(th);
+      }
+      var sp = ajouterMot(w);
+      if(i === 0) premier = sp;
+    }
+
+    if(coupe < n){
+      var b = document.createElement('button');
+      b.className = 'plus';
+      b.textContent = 'Afficher les ' + (n - coupe) + ' mots suivants';
+      b.onclick = function(){ toutAffiche = true; afficher(); };
+      zoneEl.appendChild(b);
+    }
+
+    // Un seul mot trouvé : on montre ses anagrammes d'emblée.
+    if(n === 1 && premier){ montrer(r.mots[0], premier); }
+  }
+
+  function relancer(){ lance = true; toutAffiche = false; afficher(); }
+
+  function majSum(){
+    var pris = CATS.filter(function(c){ return catCoche(c.cle); });
+    var t;
+    if(pris.length === 0) t = '\u26a0 aucun type';
+    else if(pris.length === CATS.length) t = 'Tous les types';
+    else t = pris.map(function(c){ return c.lib; }).join(', ');
+    if(rareEl.checked) t += ' + rares';
+    typesSum.textContent = t;
+  }
+
+  [nbEl, motifEl].forEach(function(el){
+    el.addEventListener('keydown', function(e){
+      if(e.key === 'Enter'){ e.preventDefault(); relancer(); }
+    });
+  });
+
+  $('go').addEventListener('click', relancer);
+
+  $('raz').addEventListener('click', function(){
+    nbEl.value = ''; motifEl.value = '';
+    lance = false; idle();
+  });
+
+  CATS.forEach(function(c){
+    $('cat-' + c.cle).addEventListener('change', function(){ majSum(); if(lance) relancer(); });
+  });
+  rareEl.addEventListener('change', function(){ majSum(); if(lance) relancer(); });
+
+  if(!window.JDL_MOTS){
+    zoneEl.innerHTML = '';
+    message('Le dictionnaire n\'a pas pu être chargé. Recharge la page.');
+    return;
+  }
+  construire();
+  majSum();
+  idle();
+})();
+</script>
+</body>
+</html>

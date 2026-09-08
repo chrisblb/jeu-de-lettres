@@ -194,6 +194,7 @@
           <label class="check"><input type="checkbox" id="cat-adj" checked> Adjectifs</label>
           <label class="check"><input type="checkbox" id="cat-adv" checked> Adverbes</label>
           <hr>
+          <label class="check"><input type="checkbox" id="plur" checked> Inclure les pluriels</label>
           <label class="check"><input type="checkbox" id="rare"> Inclure les mots rares</label>
         </div>
       </details>
@@ -241,25 +242,30 @@
 
   function construire(){
     var parMot = Object.create(null);
-    CATS.forEach(function(cat){
-      var paquets = window.JDL_MOTS[cat.cle] || [];
-      paquets.forEach(function(paquet, niv){
-        if(!paquet) return;
-        paquet.split(' ').forEach(function(mot){
-          var e = parMot[mot];
-          if(!e){
-            var plat = aplatir(mot);
-            e = parMot[mot] = { m:mot, p:plat, n:plat.length, niv:{} };
-            mots.push(e);
-          }
-          if(e.niv[cat.cle] === undefined || niv < e.niv[cat.cle]) e.niv[cat.cle] = niv;
+    function charger(source, estPluriel){
+      CATS.forEach(function(cat){
+        var paquets = (source && source[cat.cle]) || [];
+        paquets.forEach(function(paquet, niv){
+          if(!paquet) return;
+          paquet.split(' ').forEach(function(mot){
+            var e = parMot[mot];
+            if(!e){
+              var plat = aplatir(mot);
+              e = parMot[mot] = { m:mot, p:plat, n:plat.length, niv:{}, plur:estPluriel };
+              mots.push(e);
+            }
+            if(!estPluriel) e.plur = false;
+            if(e.niv[cat.cle] === undefined || niv < e.niv[cat.cle]) e.niv[cat.cle] = niv;
+          });
         });
       });
-    });
+    }
+    charger(window.JDL_MOTS, false);
+    charger(window.JDL_PLUR, true);
   }
 
   var $ = function(id){ return document.getElementById(id); };
-  var nbEl = $('nb'), motifEl = $('motif'), rareEl = $('rare'),
+  var nbEl = $('nb'), motifEl = $('motif'), rareEl = $('rare'), plurEl = $('plur'),
       typesSum = $('types-sum'), zoneEl = $('zone');
 
   function catCoche(cle){ return $('cat-' + cle).checked; }
@@ -297,8 +303,10 @@
   // Toutes les vraies anagrammes d'un mot : mêmes lettres, même longueur, le mot lui-même exclu.
   function anagrammesDe(motPlat){
     var stock = stockDeLettres(motPlat), L = motPlat.length, out = [];
+    var avecPluriels = plurEl.checked;
     for(var i=0;i<mots.length;i++){
       var w = mots[i];
+      if(!avecPluriels && w.plur) continue;
       if(w.n === L && w.p !== motPlat && memesLettres(w.p, stock)) out.push(w);
     }
     out.sort(function(a,b){ return a.p.localeCompare(b.p, 'fr'); });
@@ -320,9 +328,11 @@
     }
     var motif = motifTxt ? motifEnRegex(motifTxt) : null;
 
+    var avecPluriels = plurEl.checked;
     var res = [];
     for(var j=0;j<mots.length;j++){
       var v = mots[j];
+      if(!avecPluriels && v.plur) continue;
       if(nb && v.n !== nb) continue;
       if(motif && !motif.test(v.p)) continue;
       var garde = false;
@@ -467,6 +477,7 @@
     else if(pris.length === CATS.length) t = 'Tous les types';
     else t = pris.map(function(c){ return c.lib; }).join(', ');
     if(rareEl.checked) t += ' + rares';
+    if(!plurEl.checked) t += ' \u00b7 sans pluriels';
     typesSum.textContent = t;
   }
 
@@ -487,6 +498,7 @@
     $('cat-' + c.cle).addEventListener('change', function(){ majSum(); if(lance) relancer(); });
   });
   rareEl.addEventListener('change', function(){ majSum(); if(lance) relancer(); });
+  plurEl.addEventListener('change', function(){ majSum(); if(lance) relancer(); });
 
   if(!window.JDL_MOTS){
     zoneEl.innerHTML = '';
